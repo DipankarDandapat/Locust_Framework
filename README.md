@@ -23,7 +23,7 @@ This framework provides a robust and flexible solution for performance testing v
 
     ```bash
     git clone <repository_url>
-    cd locust_framework
+    cd Locust_Framework
     ```
 
 3.  **Install dependencies:**
@@ -47,18 +47,18 @@ This is the recommended approach for managing complex test scenarios and environ
 
     ```yaml
     # config/test_config.yaml
-    host: http://localhost:8080
+    host: https://api.freeapi.app
     users: 100
     spawn_rate: 10
     run_time: 1m
     locustfile: basic_api_test.py
-    report_name: my_api_test_report
+    report_name: basic_api_test_report
     ```
 
 2.  **Run the test:**
 
     ```bash
-    python run_locust.py --config config/my_test_config.yaml --headless
+    python run_locust.py --config config/test_config.yaml --headless
     ```
     The `--headless` flag runs Locust without the web UI, which is ideal for automated runs.
 
