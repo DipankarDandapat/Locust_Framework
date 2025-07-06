@@ -1,0 +1,6 @@
+locust
+pyyaml
+pandas
+matplotlib
+tabulate
+

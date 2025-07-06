@@ -1,0 +1,10 @@
+
+# Example Test Configuration
+host: https://api.freeapi.app
+users: 100
+spawn_rate: 10
+run_time: 1m
+locustfile: basic_api_test.py
+report_name: basic_api_test_report
+
+
