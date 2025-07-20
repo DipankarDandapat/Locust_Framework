@@ -22,7 +22,7 @@ This framework provides a robust and flexible solution for performance testing v
 2.  **Clone the repository:**
 
     ```bash
-    git clone <repository_url>
+    git clone https://github.com/DipankarDandapat/Locust_Framework.git
     cd Locust_Framework
     ```
 
@@ -183,13 +183,39 @@ class GrpcUser(User):
                                                 exception=e)
 ```
 
-### Adding Custom Utilities
+## New Test Scenarios
 
-You can add your own utility functions or classes to the `utils/` directory. For instance, you might create modules for:
+This framework now includes individual and end-to-end performance testing scenarios for the FreeAPI.app Todo API.
 
-*   **Authentication:** Centralized functions for handling various authentication flows.
-*   **Data Generation:** Scripts to generate dynamic test data.
-*   **Custom Assertions:** Helper functions for validating responses.
+### Individual API Tests
+
+- `post_todo_test.py`: This script focuses on testing the performance of the `POST /api/v1/todos` endpoint. It simulates users creating new todo items.
+- `get_todo_test.py`: This script tests the performance of the `GET /api/v1/todos/{id}` endpoint. It simulates users retrieving a specific todo item by ID. **Note:** For this individual test, a hardcoded `todo_id` is used. In a real-world scenario, you would typically retrieve existing IDs or use an end-to-end flow.
+- `delete_todo_test.py`: This script tests the performance of the `DELETE /api/v1/todos/{id}` endpoint. It simulates users deleting a specific todo item by ID. **Note:** Similar to the GET test, a hardcoded `todo_id` is used for this individual test.
+
+To run any of these individual tests, update your `test_config.yaml` to point to the desired `locustfile` (e.g., `locustfile: post_todo_test.py`) and configure the `host`, `users`, `spawn_rate`, and `run_time` as needed.
+
+### End-to-End API Test
+
+- `end_to_end_todo_test.py`: This script simulates a complete user journey involving the Todo API. It performs the following sequence of actions:
+    1. **Create Todo (POST):** A new todo item is created, and its `_id` is captured from the response.
+    2. **Get Todo (GET):** The newly created todo item is retrieved using its `_id`.
+    3. **Delete Todo (DELETE):** The todo item is then deleted using its `_id`.
+
+This scenario provides a more realistic simulation of user behavior and helps identify performance bottlenecks across multiple API calls.
+
+To run the end-to-end test, set `locustfile: end_to_end_todo_test.py` in your `test_config.yaml`.
+
+**Example `test_config.yaml` for End-to-End Test:**
+
+```yaml
+host: https://api.freeapi.app
+users: 50
+spawn_rate: 5
+run_time: 5m
+locustfile: end_to_end_todo_test.py
+report_name: end_to_end_todo_report
+```
 
 
 

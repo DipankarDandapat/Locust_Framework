@@ -1,4 +1,3 @@
-
 import argparse
 import os
 import subprocess
@@ -6,16 +5,17 @@ import yaml
 import time
 from utils.report_generator import generate_report
 
+
 def load_config(config_path):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
+
 def parse_run_time(run_time_str):
     if not run_time_str:
         return 0
-    
+
     total_seconds = 0
-    # Simple parsing for now, can be extended for more complex formats
     if run_time_str.endswith('s'):
         total_seconds = int(run_time_str[:-1])
     elif run_time_str.endswith('m'):
@@ -23,9 +23,13 @@ def parse_run_time(run_time_str):
     elif run_time_str.endswith('h'):
         total_seconds = int(run_time_str[:-1]) * 3600
     else:
-        # Assume it's in seconds if no unit is specified
-        total_seconds = int(run_time_str)
+        try:
+            total_seconds = int(run_time_str)
+        except ValueError:
+            print(f"Warning: Could not parse run_time '{run_time_str}'. Assuming 0 seconds.")
+            total_seconds = 0
     return total_seconds
+
 
 def run_locust():
     parser = argparse.ArgumentParser(description='Run Locust performance tests.')
@@ -69,42 +73,61 @@ def run_locust():
         locust_command.extend(['-r', str(spawn_rate)])
     if run_time:
         locust_command.extend(['-t', run_time])
+
     if args.headless:
         locust_command.append('--headless')
-    
+
     if report_name:
         locust_command.extend(['--csv', os.path.join('reports', report_name)])
         locust_command.extend(['--html', os.path.join('reports', f'{report_name}.html')])
 
     print(f"Running command: {' '.join(locust_command)}")
-    
-    # Add a small delay to ensure dummy server is ready
-    time.sleep(5)
 
-    print(f"Using run_time: {run_time}")
-    print(f"Timeout (with buffer): {parse_run_time(run_time) + 90}")
-    timeout_seconds = parse_run_time(run_time) + 90 # Add a buffer
+    time.sleep(2)
 
+    if args.headless:
+        timeout_seconds = parse_run_time(run_time) + 60  # Add a 60-second buffer
+        try:
+            result = subprocess.run(locust_command, cwd=os.getcwd(), check=True, capture_output=True, text=True,
+                                    timeout=timeout_seconds)
+            print("Locust stdout:", result.stdout)
+            print("Locust stderr:", result.stderr)
+        except subprocess.CalledProcessError as e:
+            print(f"Locust command failed with error code {e.returncode}")
+            print("Locust stdout:", e.stdout)
+            print("Locust stderr:", e.stderr)
+            if report_name:
+                print("Attempting to generate reports despite Locust failure...")
+                generate_report(report_name, output_dir='reports')
+            return
+        except subprocess.TimeoutExpired:
+            print("Locust command timed out.")
+            if report_name:
+                print("Attempting to generate reports despite timeout...")
+                generate_report(report_name, output_dir='reports')
+            return
+    else:
+        print("Locust UI will start. Please open your browser to http://localhost:8089 to view the UI.")
+        print("IMPORTANT: You will need to manually click 'Start swarming' in the Locust UI to begin the test.")
+        print(
+            f"The test is configured to run for {run_time}. After this duration, or when you manually stop the test in the UI, reports will be generated.")
+        process = subprocess.Popen(locust_command, cwd=os.getcwd())
 
-    try:
-        result = subprocess.run(locust_command, cwd=os.getcwd(), check=True, capture_output=True, text=True, timeout=timeout_seconds)
-        print("Locust stdout:", result.stdout)
-        print("Locust stderr:", result.stderr)
-    except subprocess.CalledProcessError as e:
-        print(f"Locust command failed with error code {e.returncode}")
-        print("Locust stdout:", e.stdout)
-        print("Locust stderr:", e.stderr)
-        return
-    except subprocess.TimeoutExpired:
-        print("Locust command timed out.")
-        return
+        # Wait for the specified run_time for the test to execute, plus a buffer
+        time.sleep(parse_run_time(run_time) + 30)
 
-    # Generate custom reports after Locust run
+        print("Attempting to stop Locust process...")
+        process.terminate()
+        try:
+            process.wait(timeout=10)  # Give it some time to terminate
+        except subprocess.TimeoutExpired:
+            print("Locust process did not terminate gracefully, killing it.")
+            process.kill()
+
     if report_name:
         print("Generating custom reports...")
         generate_report(report_name, output_dir='reports')
 
+
 if __name__ == '__main__':
     run_locust()
-
-
