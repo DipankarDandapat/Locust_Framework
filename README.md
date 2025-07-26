@@ -220,5 +220,113 @@ locustfile: end_to_end_todo_test.py
 report_name: end_to_end_todo_report
 ```
 
+## Using Utility Modules in Test Scenarios
+
+To demonstrate how to leverage the newly added utility modules (`authentication.py`, `data_generator.py`, `assertions.py`) within your Locust test scenarios, we have updated some of the example locustfiles.
+
+### `basic_api_test.py` with Assertions
+
+The `basic_api_test.py` now includes assertions to validate the API responses. This ensures that not only are requests being sent, but the responses are also as expected.
+
+```python
+from locust import HttpUser, task, between
+from utils.assertions import Assertions
+
+class BasicApiUser(HttpUser):
+    wait_time = between(1, 2)
+    host = "https://api.freeapi.app"
+
+    @task
+    def get_todos(self):
+        response = self.client.get("/api/v1/todos", params={"query": "reactjs", "complete": "false"}, headers={"accept": "application/json"})
+        # Assert that the status code is 200 OK
+        Assertions.assert_status_code(response, 200)
+        # Assert that the response contains a 'data' field
+        Assertions.assert_json_field(response, "data")
+```
+
+### `post_todo_test.py` with Data Generation and Assertions
+
+The `post_todo_test.py` now uses the `DataGenerator` to create dynamic todo data and `Assertions` to validate the creation response.
+
+```python
+from locust import HttpUser, task, between
+from utils.data_generator import DataGenerator
+from utils.assertions import Assertions
+
+class PostTodoUser(HttpUser):
+    wait_time = between(1, 2)
+    host = "https://api.freeapi.app"
+
+    def on_start(self):
+        self.data_gen = DataGenerator()
+
+    @task
+    def post_todo(self):
+        todo_data = self.data_gen.generate_todo_data()
+        headers = {"accept": "application/json", "content-type": "application/json"}
+        response = self.client.post("/api/v1/todos", json=todo_data, headers=headers)
+        # Assert that the status code is 201 Created
+        Assertions.assert_status_code(response, 201)
+        # Assert that the response contains an "_id" field
+        Assertions.assert_json_field(response, "_id")
+```
+
+### `get_todo_test.py` and `delete_todo_test.py` with Assertions
+
+Similar to `basic_api_test.py`, the `get_todo_test.py` and `delete_todo_test.py` have been updated to include assertions for status codes, JSON fields, and response times. This ensures robust validation of individual API operations.
+
+### `end_to_end_todo_test.py` with Data Generation and Assertions
+
+The `end_to_end_todo_test.py` now fully utilizes both `DataGenerator` for creating dynamic todo items and `Assertions` for validating each step of the end-to-end flow (create, get, delete).
+
+```python
+from locust import HttpUser, task, between
+from utils.data_generator import DataGenerator
+from utils.assertions import Assertions
+
+class EndToEndTodoUser(HttpUser):
+    wait_time = between(1, 2)
+    host = "https://api.freeapi.app"
+    todo_id = None
+
+    def on_start(self):
+        self.data_gen = DataGenerator()
+
+    @task(1)
+    def create_todo(self):
+        todo_data = self.data_gen.generate_todo_data()
+        headers = {"accept": "application/json", "content-type": "application/json"}
+        response = self.client.post("/api/v1/todos", json=todo_data, headers=headers, name="Create Todo")
+        Assertions.assert_status_code(response, 201)
+        Assertions.assert_json_field(response, "_id")
+        if "_id" in response.json():
+            self.todo_id = response.json()["_id"]
+            print(f"Created Todo with ID: {self.todo_id}")
+        else:
+            print(f"Failed to create Todo: {response.status_code} - {response.text}")
+
+    @task(2)
+    def get_todo(self):
+        if self.todo_id:
+            headers = {"accept": "application/json"}
+            response = self.client.get(f"/api/v1/todos/{self.todo_id}", headers=headers, name="Get Todo by ID")
+            Assertions.assert_status_code(response, 200)
+            Assertions.assert_json_field(response, "_id", self.todo_id)
+            Assertions.assert_response_time_less_than(response, 1000)
+        else:
+            print("No Todo ID available to get.")
+
+    @task(3)
+    def delete_todo(self):
+        if self.todo_id:
+            headers = {"accept": "application/json"}
+            response = self.client.delete(f"/api/v1/todos/{self.todo_id}", headers=headers, name="Delete Todo by ID")
+            Assertions.assert_status_code(response, 200)
+            Assertions.assert_response_time_less_than(response, 1000)
+            self.todo_id = None # Reset todo_id after deletion
+        else:
+            print("No Todo ID available to delete.")
+```
 
 
